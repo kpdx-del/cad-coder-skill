@@ -3,13 +3,16 @@
 Geometry on layer 0, dimensions on layer DIM."""
 
 import math
-import ezdxf
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sketch_helpers import new_doc  # noqa: E402
 
 
 def _new_doc():
-    doc = ezdxf.new("R2010", setup=True)
-    doc.layers.add("DIM", color=3)
-    return doc
+    # unified mm document: CAD_MM style, GB-ish layers/lineweights
+    return new_doc()
 
 
 def hex_nut(d=10.0, pitch=1.5):
@@ -26,9 +29,9 @@ def hex_nut(d=10.0, pitch=1.5):
     msp.add_circle((0, 0), (d + pitch * 1.0825) / 2.0,
                    dxfattribs={"linetype": "DASHED"})
     msp.add_linear_dim(base=(0, -s - 10), p1=(-w / 2, 0), p2=(w / 2, 0),
-                       angle=0, dxfattribs={"layer": "DIM"}).render()
+                       angle=0, dimstyle="CAD_MM", dxfattribs={"layer": "DIM"}).render()
     msp.add_diameter_dim(center=(0, 0), radius=d / 2.0,
-                         angle=45, dxfattribs={"layer": "DIM"}).render()
+                         angle=45, dimstyle="CAD_MM", dxfattribs={"layer": "DIM"}).render()
     return doc
 
 
@@ -46,9 +49,9 @@ def stepped_shaft(segments=None):
         top += [(x, r), (x + ln, r)]
         bot = [(x + ln, -r), (x, -r)] + bot
         msp.add_linear_dim(base=(0, -max_r - 12), p1=(x, 0), p2=(x + ln, 0),
-                           angle=0, dxfattribs={"layer": "DIM"}).render()
+                           angle=0, dimstyle="CAD_MM", dxfattribs={"layer": "DIM"}).render()
         msp.add_diameter_dim(center=(x + ln / 2, 0), radius=r,
-                             angle=90, dxfattribs={"layer": "DIM"}).render()
+                             angle=90, dimstyle="CAD_MM", dxfattribs={"layer": "DIM"}).render()
         x += ln
     msp.add_lwpolyline(top + bot, close=True)
     msp.add_line((0, 0), (x, 0), dxfattribs={"linetype": "CENTER"})
@@ -66,11 +69,11 @@ def flange(d_outer=100.0, d_inner=40.0, n_bolts=4, d_bolt=10.0, d_pcd=70.0):
         a = math.radians(90 + 360.0 * i / n_bolts)
         msp.add_circle((d_pcd / 2 * math.cos(a), d_pcd / 2 * math.sin(a)), d_bolt / 2.0)
     msp.add_diameter_dim(center=(0, 0), radius=d_outer / 2.0, angle=30,
-                         dxfattribs={"layer": "DIM"}).render()
+                         dimstyle="CAD_MM", dxfattribs={"layer": "DIM"}).render()
     msp.add_diameter_dim(center=(0, 0), radius=d_inner / 2.0, angle=150,
-                         dxfattribs={"layer": "DIM"}).render()
+                         dimstyle="CAD_MM", dxfattribs={"layer": "DIM"}).render()
     msp.add_diameter_dim(center=(0, 0), radius=d_pcd / 2.0, angle=-60,
-                         dxfattribs={"layer": "DIM"}).render()
+                         dimstyle="CAD_MM", dxfattribs={"layer": "DIM"}).render()
     return doc
 
 
@@ -85,9 +88,9 @@ def plate_with_holes(w=120.0, h=80.0, d_hole=8.0, edge=15.0, nx=3, ny=2):
             y = edge + j * (h - 2 * edge) / max(ny - 1, 1)
             msp.add_circle((x, y), d_hole / 2.0)
     msp.add_linear_dim(base=(0, -15), p1=(0, 0), p2=(w, 0), angle=0,
-                       dxfattribs={"layer": "DIM"}).render()
+                       dimstyle="CAD_MM", dxfattribs={"layer": "DIM"}).render()
     msp.add_linear_dim(base=(-15, 0), p1=(0, 0), p2=(0, h), angle=90,
-                       dxfattribs={"layer": "DIM"}).render()
+                       dimstyle="CAD_MM", dxfattribs={"layer": "DIM"}).render()
     return doc
 
 
