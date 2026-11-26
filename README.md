@@ -4,23 +4,29 @@
 
 本仓库是 [alexzeng2014/cad-coder-skill](https://github.com/alexzeng2014/cad-coder-skill) 的二次开发版本，原作者为 **alexzeng2014**，本次改进由 **kpdx-del** 维护。保留原项目的 MIT 许可证、作者署名及上游历史。本项目不代表原作者或论文作者的官方版本。
 
-上游提供了“自然语言 → Python ezdxf 脚本 → 可编辑 DXF → 图片预览”的技能、零件模板和辅助函数。本次二次开发增加机械图样标注规则、改进辅助函数、提供可运行示例和回归测试。原始版权与本次修改版权见 [LICENSE](LICENSE)。
+上游提供了"自然语言 → Python ezdxf 脚本 → 可编辑 DXF → 图片预览"的技能、零件模板和辅助函数。本次二次开发增加机械图样标注规则、改进辅助函数、提供可运行示例和回归测试。原始版权与本次修改版权见 [LICENSE](LICENSE)。
 
 上游说明其设计受到论文 [CAD-Coder: Text-Guided CAD Files Code Generation](https://arxiv.org/abs/2505.08686) 启发。本仓库提供代理技能及 Python 绘图工具，不包含论文模型权重或训练数据。
 
-## 本次改进
+![工程标注示例](docs/preview.png)
 
-- 统一为毫米与真实尺寸倍率 1，修正原有单位和尺寸倍率不一致的问题。
-- 使用原生 DIMENSION 实体，支持线性、直径、半径和三点角度尺寸；上下偏差按带符号的数值输入，支持上下堆叠显示。
-- 引出线优先直线或一次转折。几何公差框的引出线固定连接左边中点；关联中心平面时可使用无箭头的尺寸界线延伸连接。
-- 倒角辅助函数可验证箭头段与真实倒角线共线。线性尺寸数字外置时，箭头位于尺寸界线外侧、朝测量区间内指；处理端点输入顺序相反的情况。
-- 增加实心基准三角形、粗糙度完整符号、对称度/圆柱度/圆跳动/平面度公差框。基准及粗糙度布局采用本例选用的 GB/教材表达约定，其他制图体系应按其规范调整。
-- PNG/PDF 黑白预览，支持 A3/A4 固定纸张与比例；超出纸张范围直接报错，避免无提示缩放。
-- 17 项回归测试：数值、偏差、箭头实体方向、连接点、DXF 保存后重读、模板单位，以及 PDF 实际纸张尺寸。
+示例为合成的标注演示（`examples/engineering_annotations.py` 生成），数值用于说明布局；不包含个人姓名、学号或课程原文件。
 
-![工程标注示例](examples/preview.png)
+## 本次改进（均已实现并有测试覆盖）
 
-示例为合成的标注演示，数值用于说明布局；不包含个人姓名、学号或课程原文件。
+- **毫米与真实尺寸倍率 1**：`new_doc()` 设置 `$INSUNITS=4`、`CAD_MM` 标注样式（`dimlfac=1`、小数点而非逗号），修正上游默认样式把 35 mm 显示成 3500 的单位/倍率问题。
+- **GB/T 17450 风格图层与线宽**：粗实线 0.50 mm（图层 0），细实线/中心线/虚线/标注/剖面线 0.25 mm（THIN、CENTER、HIDDEN、DIM、HATCH）。
+- **原生 DIMENSION 实体**：线性、直径、半径和三点角度尺寸。角度尺寸使用 ezdxf 1.4.x 原生渲染器（旧版 ZeroDivisionError 已修复，实测验证），始终测量小于 180° 的角。
+- **上下偏差按带符号数值输入**：`dim_linear(..., upper=0.042, lower=0.026)` 表示两个正偏差，`upper=0, lower=-0.180` 表示零上偏差、负下偏差；原生公差堆叠显示，上下限必须同时提供，上限小于下限直接报错。
+- **数字外置时箭身在外、箭头向内**：渲染前通过尺寸渲染器控制，尺寸线与外侧尾线同步生成，兼顾端点反向输入。保留原生 DIMENSION、尺寸块和箭头翻转属性。
+- **引出线优先直线或一次转折**：`leader(..., elbow=...)`，LEADER 顶点从箭头尖端开始。
+- **倒角标注共线校验**：`chamfer_note(..., chamfer_edge=(p1,p2))` 验证箭头段与真实倒角线延长线共线、方向朝外、目标点在棱边端点或延长线上、末段水平，违反即报错。
+- **几何公差框**：`feature_control_frame` 支持对称度、圆柱度、圆跳动、平面度；引出线固定连接框左边中点、末段水平；关联导出轴线/中心平面时 `arrow=False` 用无箭头尺寸界线延伸连接。框为可编辑线/文字，不是原生 TOLERANCE 实体。
+- **实心基准三角形**：`datum_symbol` 底边贴合边界、顶点朝外连接方框字母，SOLID 填充。需要在共用位置去掉普通尺寸箭头时，给 `dim_linear(..., suppress_arrow=1/2)` 传端号：渲染前用原生 `DIMSAH + DIMBLK=NONE` 把该端置空，尺寸线仍画到该点，不留箭头长缺口（写入 DXF 的真实数据，CAD 可识别，而非渲染后删块）。
+- **渲染后几何审计**：`audit_annotations(msp)` 逐个核对每个 DIMENSION 有两个箭头块引用、尺寸线完整到达各端，以及每个 LEADER 的箭头标志能解析到真实箭头；返回问题清单（空列表即通过）。示例在构建后强制审计，箭头缺失或直线不完整会直接报错而不是混进预览。
+- **完整粗糙度符号**：`roughness_symbol` 去除材料横杠符号，长边横杠上方注 Ra，支持旋转。
+- **PNG/PDF 黑白预览**：`render_dxf.py --paper A3/A4 --scale`，固定纸张与比例（1:1、1:2…），按边距校验，超出纸张直接报错而非无提示缩放；`--font` 覆盖预览字体。预览文字采用 OUTLINE（矢量线框）策略：ezdxf 1.4.x 的 FILLING 策略会把直径符号 ⌀ 渲染成半填充怪字形，OUTLINE 可正确显示全部符号；DXF 文件本身保留正常文字，CAD 软件打开不受影响。
+- **40 项回归测试**：数值与偏差符号、箭头实体方向、连接点几何、表面公差垂直引出、`suppress_arrow` 置空后尺寸线仍完整、审计能抓出缺失箭头与缩短的尺寸线、DXF 保存后重读、模板单位、PDF 实际纸张尺寸（MediaBox）、超界报错、字体覆盖。
 
 ## 安装与运行
 
@@ -31,7 +37,7 @@ python -m pip install -r requirements.txt
 python examples/engineering_annotations.py out
 ```
 
-输出 `out/engineering_annotations.dxf`、`.png` 和 `.pdf`。DXF 中尺寸保留为 DIMENSION，引出线保留为 LEADER；公差框、基准与粗糙度由可编辑的线、文字和填充组成。
+输出 `out/engineering_annotations.dxf`、`.png` 和 `.pdf`（A4，1:1）。DXF 中尺寸保留为 DIMENSION，引出线保留为 LEADER；公差框、基准与粗糙度由可编辑的线、文字和填充组成。
 
 生成基础零件：
 
@@ -41,9 +47,9 @@ python scripts/render_dxf.py out/flange.dxf out/flange.png
 python scripts/render_dxf.py out/flange.dxf out/flange.pdf --paper A3 --scale 1
 ```
 
-`--scale 1` 表示 1:1，`--scale 0.5` 表示 1:2。固定纸张输出要求 DXF 单位为毫米；按边距校验是否放得下。该选项设置纸张和比例，不会自动画图框或标题栏。
+`--scale 1` 表示 1:1，`--scale 0.5` 表示 1:2。固定纸张输出要求 DXF 单位为毫米。该选项只设置纸张和比例，不会自动画图框或标题栏。
 
-中文图样需使用本机已安装且具有对应字形的字体。`new_doc(font="字体文件名.ttf")` 设置 DXF 字体；`render_dxf.py --font 字体路径` 仅覆盖预览字体。仓库不分发字体文件。
+中文图样需使用本机已安装且具有对应字形的字体：`new_doc(font="simhei.ttf")` 设置 DXF 字体；`render_dxf.py --font 字体路径.ttf` 仅覆盖预览字体。仓库不分发字体文件。
 
 ## 作为技能使用
 
@@ -60,14 +66,14 @@ from sketch_helpers import new_doc, dim_linear, feature_control_frame, chamfer_n
 
 doc = new_doc()
 m = doc.modelspace()
-dim_linear(m, (0,0), (35,0), 12, upper=0.042, lower=0.026)
-feature_control_frame(m, (45,-30), "circular_runout", 0.025, "A", target=(35,0))
-chamfer_note(m, (-20,-5), target=(0,0), elbow=(-5,-5),
-             chamfer_edge=((0,0),(2,2)))
+dim_linear(m, (0, 0), (35, 0), 12, upper=0.042, lower=0.026)
+feature_control_frame(m, (45, -30), "circular_runout", 0.025, "A", target=(35, 0))
+chamfer_note(m, (-14, 9), size=2, target=(0, 13), elbow=(-4, 9),
+             chamfer_edge=((0, 13), (2, 15)))
 doc.saveas("part.dxf")
 ```
 
-`upper`、`lower` 都是带符号偏差，不是偏差绝对值。上下限必须同时提供。部分辅助函数的可选参数为仅关键字参数。
+`upper`、`lower` 都是带符号偏差，不是偏差绝对值。部分辅助函数的可选参数为仅关键字参数。
 
 ## 验证与范围
 
@@ -75,21 +81,27 @@ doc.saveas("part.dxf")
 python -m unittest discover -s tests -v
 ```
 
-已在 Python 3.12、ezdxf 1.4.5、matplotlib 3.10.3 上运行测试并检查示例预览。测试包含 DXF 重读和 A3 PDF 页面宽高验证。外置箭头的绘制扩展使用 ezdxf 1.4.x 渲染接口，因此依赖范围限定到 `<1.5`。
+本次发布复验环境：Windows / Python 3.12.14、ezdxf 1.4.5、matplotlib 3.10.3，全部 40 项测试通过。外置箭头扩展依赖 ezdxf 1.4.x 渲染接口，依赖范围限定 `<1.5`。
 
 仍有以下边界：
 
 - 提供 2D DXF，不直接输出原生 DWG 或 3D 参数模型。
-- 不自动选择工程公差，不自动规划无碰撞引出线，不自动证明整张图符合全部 GB 标准。必须结合给定装配要求及标准版本检查。
+- 不自动选择工程公差，不自动规划无碰撞引出线，不自动证明整张图符合全部 GB 标准；基准与粗糙度布局采用本例选用的 GB/教材表达约定，其他制图体系应按其规范调整。
 - 公差框不是原生 TOLERANCE 对象；文字、线和图形可分别编辑。
-- 尚未在 AutoCAD/CAXA 等应用中逐个验证打开及重新生成的结果。文件内包含已渲染的尺寸块和箭头翻转属性；各 CAD 重新生成后的显示仍需实际检查。重新读入 DXF 后如需用本项目规则重新渲染，应重新设置本项目的尺寸渲染器。
+- 尚未在 AutoCAD/CAXA 等应用中逐个验证打开及重新生成的结果。重新读入 DXF 后如需用本项目规则重新渲染，应重新设置本项目的尺寸渲染器。
 - 基础零件模板属于示意起点，不能替代螺纹、强度和制造设计。
+
+## Roadmap
+
+- 标注碰撞检测与自动布局（当前需按 SKILL.md 规则人工/代理检查）。
+- 更多几何公差特征：位置度、垂直度、平行度、同轴度等。
+- 原生 TOLERANCE 实体选项。
+- 图框与标题栏模板（GB/T 14689 幅面）。
+- 在 AutoCAD/CAXA 中实测打开与重生成。
 
 ## 来源
 
-原始技能：[alexzeng2014/cad-coder-skill](https://github.com/alexzeng2014/cad-coder-skill)。
-
-论文引用沿用上游提供的信息：
+原始技能：[alexzeng2014/cad-coder-skill](https://github.com/alexzeng2014/cad-coder-skill)。论文引用沿用上游提供的信息：
 
 ```bibtex
 @misc{he2025cadcoder,
@@ -103,4 +115,4 @@ python -m unittest discover -s tests -v
 }
 ```
 
-辅助函数依据适用版本的 [ezdxf 尺寸文档](https://ezdxf.readthedocs.io/en/stable/tutorials/linear_dimension.html) 及其实现进行验证。代码与技能继续使用 [MIT License](LICENSE)；论文内容的权利归其作者。
+辅助函数依据适用版本的 [ezdxf 尺寸文档](https://ezdxf.readthedocs.io/en/stable/tutorials/dimension.html) 及其实现进行验证。代码与技能继续使用 [MIT License](LICENSE)；论文内容的权利归其作者。
