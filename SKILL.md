@@ -1,57 +1,68 @@
 ---
 name: cad-coder
-description: Generate editable 2D CAD sketches as DXF files from natural-language descriptions using Python ezdxf scripts, then render a PNG preview. Use when the user asks to draw, generate, or design a CAD part/sketch (flange, shaft, nut, plate, bracket, gear outline, hole patterns, etc.), wants a .dxf output, dimensioned sketches with annotations (linear/radius/diameter/angle dims, tolerances, chamfers, surface roughness), or asks for text-to-CAD / CAD-Coder style generation. Output DXF opens in AutoCAD, SolidWorks, CAXA, CATIA, UG, Onshape.
+description: Generate editable 2D mechanical drawings in DXF using Python ezdxf, with dimensions, stacked tolerances, roughness, datum symbols and geometric tolerance frames. Render PNG/PDF previews for inspection. Use for text-to-CAD sketches, dimensioned part drawings and DXF annotation corrections.
 ---
 
-# CAD-Coder: text-guided DXF generation
+# CAD-Coder — mechanical drawing edition
 
-Workflow (always in this order):
+Derivative of [alexzeng2014/cad-coder-skill](https://github.com/alexzeng2014/cad-coder-skill), maintained by kpdx-del. Preserve the upstream MIT license and attribution when sharing this skill.
 
-1. Parse the user description into a part type and concrete dimensions (mm). If key dimensions are missing, pick sensible engineering defaults and state them.
-2. Write a Python script that builds the part with `ezdxf` and saves `<name>.dxf`. Follow the code structure below.
-3. Run it, then render a preview:
-   `python <skill_dir>/scripts/render_dxf.py <name>.dxf <name>.png`
-4. Show the PNG to the user and report the DXF path. On any error, fix the script and re-run; never deliver unexecuted code.
+## Work and verification
 
-Environment: `ezdxf` and `matplotlib` must be installed (`pip install ezdxf matplotlib`).
+- Read supplied drawings before choosing geometry. Preserve specified dimensions and deviations; distinguish given values from design assumptions. Do not infer exact tolerances from image proportions.
+- For GB drawings, use the requested standard edition and supplied textbook/reference conventions. These helpers implement drawing elements, not an automatic standards-compliance checker. Verify unfamiliar symbol requirements with authoritative references.
+- Use millimetres and `new_doc()`. Nominal geometry is 1:1, dimension multiplier is 1. Default normal text is 3.5 mm and stacked deviations are 2.5 mm; use a consistent hierarchy across the sheet.
+- Generate and execute a Python builder, save DXF, reopen and audit it, then render and visually inspect the whole sheet and crowded details. Fix gaps, crossings and incorrect attachments before delivery. Deliver DXF plus the builder and preview; a raster image is not editable CAD.
+- For a printable sheet, draw the requested border/title block and use fixed paper/scale rendering. Leave personal fields blank unless supplied. Do not claim native DWG output or verified compatibility with a CAD application you have not tested.
 
-## Code structure (mirror CAD-Coder paper: imports / builder function / main)
+Install dependencies with `python -m pip install -r <skill_dir>/requirements.txt`.
 
 ```python
-import math, ezdxf
-import sys; sys.path.insert(0, r"<skill_dir>/scripts")
-from sketch_helpers import *   # new_doc + annotation helpers
+import sys
+sys.path.insert(0, "<skill_dir>/scripts")
+from sketch_helpers import new_doc, dim_linear
 
-def build(d=10.0):             # free parameters with defaults
-    doc = new_doc()            # R2010, DIM layer, linetypes set up
-    msp = doc.modelspace()
-    # geometry on layer 0, dimensions via helpers below
+def build():
+    doc = new_doc()
+    m = doc.modelspace()
+    m.add_lwpolyline([(0,0),(60,0),(60,20),(0,20)], close=True)
+    dim_linear(m, (0,0), (60,0), 12)
     return doc
 
 if __name__ == "__main__":
     build().saveas("part.dxf")
 ```
 
-## Annotation helpers (`scripts/sketch_helpers.py`)
+Render: `python <skill_dir>/scripts/render_dxf.py part.dxf part.png`.
+For physical paper: add `--paper A3 --scale 1`; PDF is also supported. Oversized drawings fail instead of silently shrinking. Use `--font` for an installed CJK font when needed; no font is bundled.
 
-- `new_doc()` - document with DIM layer and linetypes (CENTER, DASHED).
-- `dim_linear(msp, p1, p2, offset, angle=0, text=None)` - linear dimension.
-- `dim_diameter(msp, center, radius, angle=30, text=None)` / `dim_radius(...)` - circle dims.
-- `dim_angular(msp, center, p1, p2, dist, text=None)` - angle arc + label (manual; do NOT use ezdxf add_angular_dim_2l, its renderer crashes with ZeroDivisionError).
-- `tolerance_text(msp, insert, nominal, upper, lower)` - stacked tolerance MTEXT.
-- `roughness_symbol(msp, insert, value=3.2, angle=0)` - Ra check-mark symbol.
-- `chamfer_note(msp, insert, size=2.0)` - chamfer callout text.
-- `leader(msp, target, text_insert, label)` - leader + text.
+## Layout and attachment rules
 
-## Parameterized templates (`scripts/part_templates.py`)
+- Prefer straight leaders or one elbow. First move the label/frame near its feature; do not route several bends around the drawing. Keep independent leaders, arrows and text clear of one another.
+- Native LEADER vertices start at the arrow tip, followed by an optional elbow and the annotation end.
+- Geometric tolerance leaders enter the **left-edge midpoint** of the frame, with a horizontal final segment. Place the frame to the right of the target; use `feature_control_frame(..., target=...)` or `frame_leader(...)`. A helper cannot choose the correct controlled feature for you.
+- For derived axes/median planes, connect the frame to the appropriate size-dimension line or its extension. Use `arrow=False` for a plain extension connection; do not point at an arbitrary contour and imply a different tolerance requirement. Section views need applicable geometric tolerances too.
+- For the requested chamfer-line convention, pass the real `chamfer_edge=(p1,p2)` to `chamfer_note`. Its arrow-bearing segment must be collinear with that edge's extension; target defaults to p2. Put any elbow on that extension, then use at most one horizontal segment to the label. Do not use an unrelated horizontal/vertical edge as the target.
+- When a linear dimension's value is outside the measured interval, put arrow bodies outside the extension lines and tips toward the interval. `dim_linear` implements this, including reversed endpoints. Dimensions with values inside retain their normal arrow placement.
+- For the supplied GB/textbook datum convention, `datum_symbol` draws a black filled triangle with its **base touching the boundary**, its outward apex connected to the boxed letter. For an axis datum, align attachment with the size dimension and suppress any ordinary arrow occupying the same position. Do not use a leader arrow instead of the datum triangle.
+- `roughness_symbol` draws a material-removal symbol with Ra below the long bar. Keep the notation and symbol orientation consistent with the selected standard/reference.
+- Use continuous physical edges; split only what the drawing convention requires. A slot centreline extends beyond both ends. Orient section centrelines to their corresponding section directions, and clip hatching to the actual material boundary.
 
-Ready-made builders: `hex_nut(d, pitch)`, `stepped_shaft(segments=[(dia,len),...])`, `flange(d_outer, d_inner, n_bolts, d_bolt, d_pcd)`, `plate_with_holes(w, h, d_hole, edge, nx, ny)`.
-Run directly: `python <skill_dir>/scripts/part_templates.py flange out.dxf`, or import and customize parameters from the user description. For other part types, write a new builder in the same style.
+## Helpers
 
-## Rules
+Import from `scripts/sketch_helpers.py`:
 
-- Units mm; geometry on layer 0, all dimensions/annotations on layer DIM.
-- Use CENTER linetype for axes/pitch circles, DASHED for hidden/thread lines.
-- Always add dimensions the user mentioned; add obvious primary dimensions even if not mentioned.
-- Render preview with white background via render_dxf.py (already configured).
-- DXF is the deliverable; keep the .py script next to it so users can tweak parameters and regenerate.
+- `new_doc(text_height=3.5, font="DejaVuSans.ttf")`: R2010, mm, CAD_MM dimension style, DIM and CENTER layers; use geometry layer 0, annotation layer DIM.
+- `dim_linear(msp,p1,p2,offset,angle=0,text=None,upper=None,lower=None,text_location=None)`: native DIMENSION. Positive offset places horizontal dimensions below, vertical dimensions left. `text="%%c<>"` prefixes a diameter mark to the real measurement.
+- `dim_diameter(...)`, `dim_radius(...)`, `dim_angular(msp,center,p1,p2,dist,text=None)`: native dimensions; angular helper measures the smaller angle.
+- Supply both deviations as **signed** values: `upper=0.042,lower=0.026` means two positive deviations; `upper=0,lower=-0.180` means a zero upper deviation and negative lower deviation. Preserve the given values; changing typography is not a reason to change the tolerance.
+- `tolerance_text(msp,insert,nominal,upper,lower,height=3.5,precision=3,rotation=0)`: editable standalone stacked MTEXT, not a measured dimension.
+- `leader(msp,target,text_insert,label,height=3.5,elbow=None)`; `chamfer_note(msp,insert,size=2,angle=45,height=3.5,target=None,elbow=None,chamfer_edge=None)`.
+- `roughness_symbol(msp,insert,value=3.2,angle=0,height=3.5)`; `datum_symbol(msp,boundary,label,height=3.5,side="below",filled=True)`.
+- `feature_control_frame(msp,insert,characteristic,value,datum=None,height=3.5,target=None,elbow=None,arrow=True)`: supported characteristics are symmetry, cylindricity, circular_runout and flatness. Returns `(left,bottom,right,top)`. Frames are editable lines/text, not native TOLERANCE entities. `frame_leader(msp,bounds,target,...)` attaches to an existing frame.
+
+Optional arguments after `*` in the Python signatures are keyword-only. See [the runnable example](examples/engineering_annotations.py) for attachment geometry, deviations and a hatched keyway section.
+
+Templates in `scripts/part_templates.py`: hex_nut, stepped_shaft, flange, plate_with_holes. These are starting sketches; review dimensions and layout for the requested use.
+
+Validation after changing helpers: `python -m unittest discover -s <skill_dir>/tests -v`. Also render the example and inspect it; numeric tests alone cannot establish readable sheet layout.

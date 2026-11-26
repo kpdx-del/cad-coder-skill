@@ -1,71 +1,95 @@
-# CAD-Coder Skill
+# CAD-Coder Skill · 机械零件工程图加强版
 
-Text-guided generation of editable 2D CAD sketches (`.dxf`) from natural-language descriptions, implemented as a Codex/Cindy agent skill. The agent writes a Python [ezdxf](https://ezdxf.readthedocs.io/) script for the requested part, executes it to produce a DXF file, and renders a PNG preview for verification.
+## 二次开发声明 / Attribution
 
-This project is an independent, skill-based reimplementation inspired by the paper:
+本仓库是 [alexzeng2014/cad-coder-skill](https://github.com/alexzeng2014/cad-coder-skill) 的二次开发版本，原作者为 **alexzeng2014**，本次改进由 **kpdx-del** 维护。保留原项目的 MIT 许可证、作者署名及上游历史。本项目不代表原作者或论文作者的官方版本。
 
-> **CAD-Coder: Text-Guided CAD Files Code Generation**
-> Changqi He, Shuhan Zhang, Liguo Zhang, Jiajun Miao
-> College of Computer Science and Technology, Harbin Engineering University
-> arXiv:2505.08686 [cs.GR], May 2025. <https://arxiv.org/abs/2505.08686>
+上游提供了“自然语言 → Python ezdxf 脚本 → 可编辑 DXF → 图片预览”的技能、零件模板和辅助函数。本次二次开发增加机械图样标注规则、改进辅助函数、提供可运行示例和回归测试。原始版权与本次修改版权见 [LICENSE](LICENSE)。
 
-The original CAD-Coder fine-tunes `DeepSeek-R1-Distill-Llama-8B` with LoRA on a purpose-built CFSC dataset (29,130 DXF + script pairs) to map natural language to ezdxf script code. This skill keeps the same core idea — *natural language -> Python ezdxf script -> DXF -> preview* — but replaces the fine-tuned model with an agent driven by the reusable templates and annotation helpers in this repository. No model weights or dataset from the paper are used here (the authors state the dataset will be released upon acceptance).
+上游说明其设计受到论文 [CAD-Coder: Text-Guided CAD Files Code Generation](https://arxiv.org/abs/2505.08686) 启发。本仓库提供代理技能及 Python 绘图工具，不包含论文模型权重或训练数据。
 
-## Repository layout
+## 本次改进
 
+- 统一为毫米与真实尺寸倍率 1，修正原有单位和尺寸倍率不一致的问题。
+- 使用原生 DIMENSION 实体，支持线性、直径、半径和三点角度尺寸；上下偏差按带符号的数值输入，支持上下堆叠显示。
+- 引出线优先直线或一次转折。几何公差框的引出线固定连接左边中点；关联中心平面时可使用无箭头的尺寸界线延伸连接。
+- 倒角辅助函数可验证箭头段与真实倒角线共线。线性尺寸数字外置时，箭头位于尺寸界线外侧、朝测量区间内指；处理端点输入顺序相反的情况。
+- 增加实心基准三角形、粗糙度完整符号、对称度/圆柱度/圆跳动/平面度公差框。基准及粗糙度布局采用本例选用的 GB/教材表达约定，其他制图体系应按其规范调整。
+- PNG/PDF 黑白预览，支持 A3/A4 固定纸张与比例；超出纸张范围直接报错，避免无提示缩放。
+- 17 项回归测试：数值、偏差、箭头实体方向、连接点、DXF 保存后重读、模板单位，以及 PDF 实际纸张尺寸。
+
+![工程标注示例](examples/preview.png)
+
+示例为合成的标注演示，数值用于说明布局；不包含个人姓名、学号或课程原文件。
+
+## 安装与运行
+
+Python 3.10+：
+
+```bash
+python -m pip install -r requirements.txt
+python examples/engineering_annotations.py out
 ```
-SKILL.md                  # skill manifest: triggers, workflow, rules
-scripts/
-  part_templates.py       # parameterized part builders (hex_nut, stepped_shaft, flange, plate_with_holes)
-  sketch_helpers.py       # dimension & annotation helpers (linear/radius/diameter/angle dims, tolerance, roughness, chamfer, leader)
-  render_dxf.py           # DXF -> PNG preview renderer (white background)
-```
 
-## Requirements
+输出 `out/engineering_annotations.dxf`、`.png` 和 `.pdf`。DXF 中尺寸保留为 DIMENSION，引出线保留为 LEADER；公差框、基准与粗糙度由可编辑的线、文字和填充组成。
 
-- Python 3.10+
-- `pip install ezdxf matplotlib`
-
-## Usage (standalone, without an agent)
-
-Generate a DXF from a built-in template with default parameters:
+生成基础零件：
 
 ```bash
 python scripts/part_templates.py flange out/flange.dxf
 python scripts/render_dxf.py out/flange.dxf out/flange.png
+python scripts/render_dxf.py out/flange.dxf out/flange.pdf --paper A3 --scale 1
 ```
 
-Customize parameters in your own script:
+`--scale 1` 表示 1:1，`--scale 0.5` 表示 1:2。固定纸张输出要求 DXF 单位为毫米；按边距校验是否放得下。该选项设置纸张和比例，不会自动画图框或标题栏。
+
+中文图样需使用本机已安装且具有对应字形的字体。`new_doc(font="字体文件名.ttf")` 设置 DXF 字体；`render_dxf.py --font 字体路径` 仅覆盖预览字体。仓库不分发字体文件。
+
+## 作为技能使用
+
+将仓库目录安装或复制为技能目录中的 `cad-coder` 文件夹，使 `SKILL.md` 位于该文件夹根目录。可提出：
+
+> 画一个阶梯轴，带尺寸与上下偏差、公差框和粗糙度。引出线最多一次转折，公差框从左边中点接线，生成可编辑 DXF 和预览图。
+
+具体工作规则、辅助函数和验收步骤见 [SKILL.md](SKILL.md)。示例见 [examples/engineering_annotations.py](examples/engineering_annotations.py)。
 
 ```python
 import sys
 sys.path.insert(0, "scripts")
-from part_templates import flange, stepped_shaft, hex_nut, plate_with_holes
+from sketch_helpers import new_doc, dim_linear, feature_control_frame, chamfer_note
 
-flange(d_outer=120.0, d_inner=50.0, n_bolts=6, d_bolt=12.0, d_pcd=85.0).saveas("flange.dxf")
-stepped_shaft(segments=[(20.0, 30.0), (30.0, 40.0), (16.0, 25.0)]).saveas("shaft.dxf")
+doc = new_doc()
+m = doc.modelspace()
+dim_linear(m, (0,0), (35,0), 12, upper=0.042, lower=0.026)
+feature_control_frame(m, (45,-30), "circular_runout", 0.025, "A", target=(35,0))
+chamfer_note(m, (-20,-5), target=(0,0), elbow=(-5,-5),
+             chamfer_edge=((0,0),(2,2)))
+doc.saveas("part.dxf")
 ```
 
-For parts not covered by the templates, write a builder following the same structure (imports / builder function with free parameters / main) and use the annotation helpers from `sketch_helpers.py` for dimensions, tolerances, chamfers, and surface-roughness symbols.
+`upper`、`lower` 都是带符号偏差，不是偏差绝对值。上下限必须同时提供。部分辅助函数的可选参数为仅关键字参数。
 
-## Usage (as an agent skill)
+## 验证与范围
 
-Point your Codex/Cindy skill directory at this repository (or copy the folder into your skills root). Once the skill is listed, ask in natural language, e.g.:
+```bash
+python -m unittest discover -s tests -v
+```
 
-- "Draw a flange, outer diameter 120, 6 M12 bolt holes on an 85 mm pitch circle, output DXF."
-- "画一个阶梯轴，三段：直径20长30、直径30长40、直径16长25，带尺寸标注。"
+已在 Python 3.12、ezdxf 1.4.5、matplotlib 3.10.3 上运行测试并检查示例预览。测试包含 DXF 重读和 A3 PDF 页面宽高验证。外置箭头的绘制扩展使用 ezdxf 1.4.x 渲染接口，因此依赖范围限定到 `<1.5`。
 
-The agent will parse the description, fill in missing dimensions with engineering defaults, generate and run the ezdxf script, render the PNG preview, and hand you the `.dxf` (opens in AutoCAD, SolidWorks, CAXA, CATIA, UG, Onshape).
+仍有以下边界：
 
-## Notes & known issues
+- 提供 2D DXF，不直接输出原生 DWG 或 3D 参数模型。
+- 不自动选择工程公差，不自动规划无碰撞引出线，不自动证明整张图符合全部 GB 标准。必须结合给定装配要求及标准版本检查。
+- 公差框不是原生 TOLERANCE 对象；文字、线和图形可分别编辑。
+- 尚未在 AutoCAD/CAXA 等应用中逐个验证打开及重新生成的结果。文件内包含已渲染的尺寸块和箭头翻转属性；各 CAD 重新生成后的显示仍需实际检查。重新读入 DXF 后如需用本项目规则重新渲染，应重新设置本项目的尺寸渲染器。
+- 基础零件模板属于示意起点，不能替代螺纹、强度和制造设计。
 
-- Units are millimeters; geometry on layer `0`, dimensions/annotations on layer `DIM`.
-- `dim_angular` is drawn manually (arc + text) because ezdxf's `add_angular_dim_2l().render()` crashes with a `ZeroDivisionError` in the curved-dimension renderer.
-- 3D support is out of scope for this skill; the paper demonstrates DXF-based 3D models, but the templates here are 2D sketches.
+## 来源
 
-## Citation
+原始技能：[alexzeng2014/cad-coder-skill](https://github.com/alexzeng2014/cad-coder-skill)。
 
-If you use or build on this work, please cite the original paper:
+论文引用沿用上游提供的信息：
 
 ```bibtex
 @misc{he2025cadcoder,
@@ -79,6 +103,4 @@ If you use or build on this work, please cite the original paper:
 }
 ```
 
-## License
-
-This repository (skill, templates, helpers, renderer) is released under the MIT License. The paper's content remains the property of its authors; please refer to arXiv:2505.08686 for its license terms.
+辅助函数依据适用版本的 [ezdxf 尺寸文档](https://ezdxf.readthedocs.io/en/stable/tutorials/linear_dimension.html) 及其实现进行验证。代码与技能继续使用 [MIT License](LICENSE)；论文内容的权利归其作者。
