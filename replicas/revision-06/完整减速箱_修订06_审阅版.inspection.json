@@ -1,0 +1,23 @@
+{
+  "version": [
+    "1",
+    "1",
+    "4"
+  ],
+  "objects": 634,
+  "texts": 24,
+  "dimensions": 9,
+  "types": [
+    "App::DocumentObjectGroup",
+    "App::DocumentObjectGroupPython",
+    "App::FeaturePython",
+    "Part::Compound",
+    "Part::FeaturePython",
+    "Part::Part2DObjectPython"
+  ],
+  "reopened": true,
+  "limitations": [
+    "2D import; no 3D feature history inferred",
+    "visual review required"
+  ]
+}
