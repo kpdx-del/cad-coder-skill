@@ -1,0 +1,76 @@
+{
+  "mode": "course",
+  "part_type": "shaft",
+  "units": "mm",
+  "references": [
+    "Textbook Ch.3 Figs.3-9/3-10/3-13, Table3-3; Ch.5 Fig.5-10: notation only; all numbers synthetic"
+  ],
+  "parameters": {
+    "diameters": {
+      "value": [
+        30,
+        40,
+        25
+      ],
+      "source": {
+        "kind": "reference",
+        "document": "examples/engineering_annotations.py",
+        "edition": "engineering-demo-v3",
+        "locator": "parameters/build/section: repository-authored synthetic values"
+      }
+    },
+    "axial_dimensions": {
+      "value": [
+        40,
+        35,
+        125
+      ],
+      "source": {
+        "kind": "reference",
+        "document": "examples/engineering_annotations.py",
+        "edition": "engineering-demo-v3",
+        "locator": "parameters/build/section: repository-authored synthetic values"
+      }
+    },
+    "demonstration_geometry": {
+      "value": "two keyways: width/depth/length 8/4/24 and 6/3/20; chamfer 2x45deg",
+      "source": {
+        "kind": "reference",
+        "document": "examples/engineering_annotations.py",
+        "edition": "engineering-demo-v3",
+        "locator": "parameters/build/section: repository-authored synthetic values"
+      }
+    },
+    "demonstration_controls": {
+      "value": "diameter 30 and 25: upper 0 lower -0.021; 40: +0.042/+0.026; keywidth upper 0 lower -0.016; residual upper 0 lower -0.2; roundness 0.01; symmetry 0.020; roughness Ra1.6/Ra3.2",
+      "source": {
+        "kind": "reference",
+        "document": "examples/engineering_annotations.py",
+        "edition": "engineering-demo-v3",
+        "locator": "parameters/build/section: repository-authored synthetic values"
+      }
+    }
+  },
+  "chains": {
+    "shaft_axis": [
+      {
+        "start": "left",
+        "end": "shoulder1",
+        "value": 40,
+        "function": "locating"
+      },
+      {
+        "start": "shoulder2",
+        "end": "right",
+        "value": 35,
+        "function": "coupling"
+      },
+      {
+        "start": "left",
+        "end": "right",
+        "value": 125,
+        "function": "overall"
+      }
+    ]
+  }
+}

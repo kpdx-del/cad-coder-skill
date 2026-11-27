@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Regression tests for sketch_helpers (numbers, signs, attachment geometry,
 DXF save/reload). Run: python -m unittest discover -s tests -v"""
+import io
 import math
 import os
 import sys
@@ -13,7 +14,7 @@ import ezdxf  # noqa: E402
 from sketch_helpers import (  # noqa: E402
     new_doc, dim_linear, dim_angular, tolerance_text, leader, chamfer_note,
     roughness_symbol, datum_symbol, feature_control_frame, frame_leader,
-    audit_annotations,
+    audit_annotations, audit_required_arrows,
 )
 import part_templates  # noqa: E402
 
@@ -84,7 +85,7 @@ class TestLinearDimension(unittest.TestCase):
         d = dim_linear(doc.modelspace(), (0, 0), (35, 0), 12,
                        upper=0, lower=-0.180)
         txt = " ".join(_block_texts(d))
-        self.assertIn("0.000", txt)
+        self.assertIn("\\S0^", txt)
         self.assertIn("-0.180", txt)
 
     def test_deviations_required_together(self):
@@ -168,7 +169,7 @@ class TestLeadersAndChamfer(unittest.TestCase):
         ld = m.query("LEADER")[0]
         self.assertEqual(tuple(ld.vertices[0]), (0, 13, 0))
         labels = [t.dxf.text for t in m.query("TEXT")]
-        self.assertIn("C2", labels)
+        self.assertIn("2×45°", labels)
 
     def test_chamfer_noncollinear_raises(self):
         doc = new_doc()
@@ -329,7 +330,7 @@ class TestAudit(unittest.TestCase):
         # pull the start inward by an extra arrow length, leaving a gap
         line.dxf.start = (line.dxf.start[0] + 5.0, line.dxf.start[1])
         problems = audit_annotations(doc.modelspace())
-        self.assertTrue(any("does not reach" in p for p in problems))
+        self.assertTrue(any("gap" in p or "does not reach" in p for p in problems))
 
     def test_leader_flag_with_none_arrow_is_detected(self):
         doc = new_doc()
@@ -339,6 +340,55 @@ class TestAudit(unittest.TestCase):
         self.assertTrue(bool(ld.dxf.has_arrowhead))
         problems = audit_annotations(m)
         self.assertTrue(any("resolves to no arrow" in p for p in problems))
+
+    def test_required_arrows_survive_save_reload_and_reversed_points(self):
+        for p1, p2 in (((0, 0), (0, 60)), ((0, 60), (0, 0))):
+            doc = new_doc()
+            dim_linear(doc.modelspace(), p1, p2, 20, angle=90)
+            stream = io.StringIO()
+            doc.write(stream)
+            stream.seek(0)
+            restored = ezdxf.read(stream)
+            dim, = restored.modelspace().query("DIMENSION")
+            self.assertEqual(audit_required_arrows(dim), [])
+
+    def test_declared_blank_cannot_override_required_arrow(self):
+        doc = new_doc()
+        dim = dim_linear(doc.modelspace(), (0, 0), (0, 60), 20,
+                         angle=90, suppress_arrow=2).dimension
+        # The old metadata-based audit permits an intentionally blank end.
+        self.assertEqual(audit_annotations(doc.modelspace()), [])
+        problems = audit_annotations(doc.modelspace(), required_arrows={dim.dxf.handle: (1, 2)})
+        self.assertTrue(any("required arrow at end 2" in p for p in problems))
+
+    def test_deleted_arrow_cannot_pass_requirement(self):
+        doc = new_doc()
+        override = dim_linear(doc.modelspace(), (0, 0), (60, 0), 12)
+        dim = override.dimension
+        block = doc.blocks.get(dim.dxf.geometry)
+        block.delete_entity(_arrow_inserts(override)[0])
+        self.assertTrue(any("missing" in p for p in audit_required_arrows(dim)))
+
+    def test_hidden_and_empty_arrows_fail_requirement(self):
+        for alteration in ("hidden", "empty_block"):
+            with self.subTest(alteration=alteration):
+                doc = new_doc()
+                override = dim_linear(doc.modelspace(), (0, 0), (60, 0), 12)
+                arrow = _arrow_inserts(override)[0]
+                if alteration == "hidden":
+                    arrow.dxf.invisible = 1
+                else:
+                    # A block reference alone does not prove an arrow exists.
+                    content = doc.blocks.get(arrow.dxf.name)
+                    for entity in list(content):
+                        content.delete_entity(entity)
+                self.assertTrue(audit_required_arrows(override.dimension))
+
+    def test_shared_datum_end_can_be_explicitly_excluded(self):
+        doc = new_doc()
+        dim = dim_linear(doc.modelspace(), (0, 0), (0, 60), 20,
+                         angle=90, suppress_arrow=2).dimension
+        self.assertEqual(audit_required_arrows(dim, required_ends=(1,)), [])
 
 
 class TestTemplates(unittest.TestCase):

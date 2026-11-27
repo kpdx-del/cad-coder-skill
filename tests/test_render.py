@@ -23,6 +23,22 @@ def _sample_dxf(path, w=100.0, h=50.0):
 
 
 class TestRender(unittest.TestCase):
+    def test_diameter_glyph_has_open_bowl_not_half_filled(self):
+        from PIL import Image, ImageChops
+        from typography import add_text
+        with tempfile.TemporaryDirectory() as td:
+            d=new_doc()
+            add_text(d.modelspace(),"Ø",(0,0),height=10)
+            source=os.path.join(td,"glyph.dxf"); target=os.path.join(td,"glyph.png")
+            d.saveas(source); render(source,target)
+            with Image.open(target) as im:
+                gray=im.convert("L")
+                ink=ImageChops.invert(gray).point(lambda v:255 if v>80 else 0)
+                crop=ink.crop(ink.getbbox())
+                ratio=sum(v>0 for v in crop.getdata())/(crop.width*crop.height)
+                self.assertGreater(ratio,.01)
+                self.assertLess(ratio,.30,"Ø bowl was filled by the contour-nesting heuristic")
+
     def test_png_autofit(self):
         with tempfile.TemporaryDirectory() as td:
             dxf = _sample_dxf(os.path.join(td, "s.dxf"))

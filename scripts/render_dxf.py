@@ -37,6 +37,27 @@ from ezdxf.addons.drawing.config import (  # noqa: E402
 PAPERS = {"A3": (420.0, 297.0), "A4": (297.0, 210.0)}
 
 
+class EngineeringBackend(MatplotlibBackend):
+    def draw_filled_paths(self, paths, properties):
+        # TrueType glyph contours already carry their nonzero winding. The
+        # generic nesting heuristic can reverse overlapping contours in Ø,
+        # filling half its bowl. Preserve font winding; retain normal hole
+        # detection for hatches/solids. This changes preview paths, not DXF.
+        if any(e.dxftype() in ("TEXT", "MTEXT", "ATTRIB") for e, _ in self.entity_stack):
+            from matplotlib.patches import PathPatch
+            from ezdxf.addons.drawing.matplotlib import to_matplotlib_path
+            # ISOCP's TrueType contours are hairlines intended for plotter
+            # strokes. Give them the annotation pen width at physical scale.
+            pen = any(p.font and p.font.family.casefold() == "isocp" for e,p in self.entity_stack)
+            self.ax.add_patch(PathPatch(to_matplotlib_path(paths, detect_holes=False),
+                                        facecolor=properties.color,
+                                        edgecolor=properties.color if pen else "none",
+                                        linewidth=properties.lineweight*72/25.4 if pen else 0,
+                                        fill=True, zorder=self._get_z()))
+        else:
+            super().draw_filled_paths(paths, properties)
+
+
 def _drawing_extents(msp):
     """Bounding box including rendered dimensions, leaders and text."""
     entities = list(disassemble.recursive_decompose(msp))
@@ -44,33 +65,39 @@ def _drawing_extents(msp):
 
 
 def _make_context(doc, font_path):
-    if font_path is None:
-        return RenderContext(doc)
     from ezdxf.fonts import fonts as ezfonts
-    loaded = ezfonts.sideload_ttf(font_path, cap_height=0.7)
-    family = loaded.name
+    from typography import register_font, check_glyphs
+    explicit = register_font(font_path) if font_path else None
+    for entity in disassemble.recursive_decompose(doc.modelspace()):
+        if entity.dxftype() not in ("TEXT", "MTEXT"):
+            continue
+        name = explicit or doc.styles.get(entity.dxf.style).dxf.font
+        register_font(name)
+        check_glyphs(entity.plain_text(), name)
 
     class _FontContext(RenderContext):
         def resolve_font(self, entity):
-            return ezfonts.find_font_face(family)
+            name = explicit or doc.styles.get(entity.dxf.style).dxf.font
+            return ezfonts.get_font_face(name, map_shx=False)
 
     return _FontContext(doc)
 
 
-def render(dxf_path, out_path, paper=None, scale=1.0, font=None, margin=10.0):
-    doc = ezdxf.readfile(dxf_path)
+def render_many(dxf_path, out_paths, paper=None, scale=1.0, font=None, margin=10.0, dpi=200, doc=None):
+    """Render multiple formats from one parse, font context and figure."""
+    out_paths = list(out_paths)
+    if not out_paths:
+        raise ValueError("at least one output is required")
+    doc = doc if doc is not None else ezdxf.readfile(dxf_path)
     msp = doc.modelspace()
     ext = _drawing_extents(msp)
     if not ext.has_data:
         raise ValueError("drawing is empty: %s" % dxf_path)
 
-    # Outline text: vector CAD-style lettering. The FILLING policy mis-fills
-    # the diameter glyph (half-disc artifact) in ezdxf 1.4.x; outlines render
-    # every symbol correctly. The DXF itself keeps normal text for CAD apps.
     cfg = Configuration().with_changes(
         background_policy=BackgroundPolicy.WHITE,
         color_policy=ColorPolicy.BLACK,
-        text_policy=TextPolicy.OUTLINE,
+        text_policy=TextPolicy.FILLING,
     )
     ctx = _make_context(doc, font)
 
@@ -81,11 +108,13 @@ def render(dxf_path, out_path, paper=None, scale=1.0, font=None, margin=10.0):
         ax.set_xlim(ext.extmin.x, ext.extmax.x)
         ax.set_ylim(ext.extmin.y, ext.extmax.y)
         ax.set_aspect("equal")
-        Frontend(ctx, MatplotlibBackend(ax), config=cfg).draw_layout(msp, finalize=True)
-        fig.savefig(out_path, dpi=200, facecolor="white")
-        plt.close(fig)
-        print(out_path)
-        return out_path
+        Frontend(ctx, EngineeringBackend(ax), config=cfg).draw_layout(msp, finalize=True)
+        try:
+            for out_path in out_paths:
+                fig.savefig(out_path, dpi=dpi, facecolor="white")
+        finally:
+            plt.close(fig)
+        return out_paths
 
     # ---- fixed paper mode ----
     if paper not in PAPERS:
@@ -116,13 +145,18 @@ def render(dxf_path, out_path, paper=None, scale=1.0, font=None, margin=10.0):
     ax.set_ylim(cy - win_h / 2.0, cy + win_h / 2.0)
     ax.set_aspect("equal")
     # keep the exact paper figsize and limits: no autoscale, no figure resize
-    backend = MatplotlibBackend(ax, adjust_figure=False)
+    backend = EngineeringBackend(ax, adjust_figure=False)
     Frontend(ctx, backend, config=cfg).draw_layout(msp, finalize=False)
-    if str(out_path).lower().endswith(".pdf"):
-        fig.savefig(out_path, facecolor="white")   # exact figsize -> exact page
-    else:
-        fig.savefig(out_path, dpi=200, facecolor="white")
-    plt.close(fig)
+    try:
+        for out_path in out_paths:
+            fig.savefig(out_path, dpi=dpi, facecolor="white")
+    finally:
+        plt.close(fig)
+    return out_paths
+
+
+def render(dxf_path, out_path, paper=None, scale=1.0, font=None, margin=10.0):
+    render_many(dxf_path, [out_path], paper, scale, font, margin)
     print(out_path)
     return out_path
 

@@ -1,0 +1,284 @@
+{
+  "schema_version": 1,
+  "name": "首期二维零件库（索引/查询）",
+  "scope": "二维画法、参数来源与审图规则索引/查询；不是六套完整生成器，不承诺三维参数化模型或 SolidWorks 特征树。",
+  "checked_on": "2026-11-27",
+  "disclaimer": "表示法/规则核实与产品尺寸数据核实分开记录。官方标准目录状态（catalog_status）只证明标准现行/废止/实施日期，不等于尺寸表已核验；所有产品尺寸表本轮未核验，不得据此生成正式尺寸。禁止编造标准条号、页码、规格值、材料、热处理、公差、粗糙度。",
+  "verification_model": {
+    "catalog_status": "官方标准目录状态核查（现行/废止/实施日期）",
+    "dimension_tables": "本轮全部未核验；目录为现行不等于正式尺寸库",
+    "representation_verified": "表示法/画法规则核实程度，与产品数据核实分开"
+  },
+  "condition_inputs": {
+    "_doc": "条件参数由显式条件输入（键 + 值）决定，不按字段名存在即触发。条件输入未给出或值无法识别时视为 unknown（待确认），不等于 false（不需要）。",
+    "view_spec": {"values": ["end", "side", "section"], "meaning": "视图方向：端视/侧视/剖切"},
+    "thread_form": {"values": ["coarse", "fine"], "meaning": "螺纹形式：已明确粗牙/已明确细牙；coarse/fine 须由标记或标准明确，未知时不能自动设 coarse，不得补默认螺距值"},
+    "thread_termination": {"values": ["false", "true"], "meaning": "是否需要表达螺纹终止线/旋合长度"},
+    "grade_series_specified": {"values": ["true", "false"], "meaning": "指定类型/标准是否已包含产品等级与尺寸系列"},
+    "keyway_tolerance_required": {"values": ["false", "true"], "meaning": "是否需要标注键槽配合公差"},
+    "chamfer_required": {"values": ["false", "true"], "meaning": "按任务条件是否需要倒角"}
+  },
+  "categories": [
+    {
+      "id": "bolt",
+      "name_zh": "螺栓",
+      "name_en": "bolt",
+      "aliases": ["六角头螺栓", "外六角螺栓", "hex bolt", "hexagon head bolt", "hex screw", "外螺纹紧固件"],
+      "status": "candidate",
+      "parameters": {
+        "required": [
+          {"name": "type", "label_zh": "螺栓类型/标准（如六角头 GB/T 5782）", "note": "决定头部端视/侧视画法", "positive": false},
+          {"name": "specification", "label_zh": "规格（公称直径×公称长度，如 M12×60）", "note": "公称直径与公称长度用于识别公称规格，不足以唯一确定全部外形（还取决于类型/标准/版次、螺距、螺纹范围等）；不默认任何 M 号或长度", "positive": false}
+        ],
+        "conditional": [
+          {"name": "pitch", "label_zh": "螺距", "condition": "细牙或非默认螺距时", "trigger_key": "thread_form", "trigger_required": ["fine", "细牙"], "trigger_not_required": ["coarse", "粗牙"], "note": "普通粗牙默认螺距省略；细牙不能丢项", "positive": true},
+          {"name": "thread_length", "label_zh": "螺纹长度/旋合长度", "condition": "需要表达螺纹终止线或旋合长度时", "trigger_key": "thread_termination", "trigger_required": ["true", "需要"], "trigger_not_required": ["false", "不需要"], "note": "不按图片比例补造", "positive": false}
+        ],
+        "optional": [
+          {"name": "property_class", "label_zh": "性能等级", "note": "标注机械性能/标记时才需要", "positive": false},
+          {"name": "material", "label_zh": "材料", "note": "标注材料/热处理时才需要，不默认", "positive": false},
+          {"name": "surface", "label_zh": "镀层/表面处理", "note": "标注镀层要求时才需要", "positive": false}
+        ]
+      },
+      "drawing": {
+        "view_rules": [
+          "六角头轴向端视：外轮廓为正六边形，实心头部不画内螺纹孔",
+          "螺杆螺纹端视：外螺纹大径为粗实线整圆，小径为细实线约3/4圆（与内螺纹相反）",
+          "侧视：与端视六角朝向保持投影一致；详细画法按倒角投影，装配简化图可省略倒角细节"
+        ],
+        "section_rules": "沿轴线的螺纹紧固件装配剖切按不剖处理（相邻不同零件剖面线应有区别）；不能扩大到任意零件/任意方向均不剖。",
+        "representation_status": "partially_verified",
+        "basis": "GB/T 4459.1-1995（catalog_status，官方目录现行）；《工程制图》第2版公开第3章印刷第55—56页及图3-23（装配剖切不剖、相邻零件剖面线区别、简化省略倒角），出处见 references/fasteners.md；scripts/fasteners.py 已提供简化图元（非尺寸表）。"
+      },
+      "standards": [
+        {"id": "GB/T 4459.1-1995", "kind": "drawing_representation", "title": "机械制图 螺纹及螺纹紧固件表示法", "status": "current", "verified": "catalog_status", "checked_on": "2026-11-27", "role": "螺纹及紧固件表示法", "url": "https://std.samr.gov.cn/gb/search/gbDetailed?id=wy%2FJ%2FNgC4LY%3D&mode=p"},
+        {"id": "GB/T 5782-2025", "kind": "product", "title": "紧固件 六角头螺栓", "status": "current", "effective_on": "2026-02-01", "verified": "catalog_status_only_not_dimension_tables", "checked_on": "2026-11-27", "role": "产品尺寸标准（尺寸表未核验）", "url": "https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=5606A1174F2C9E19408EB30FB323B25E"}
+      ],
+      "github": [
+        {"repository": "shaise/FreeCAD_FastenersWB", "url": "https://github.com/shaise/FreeCAD_FastenersWB", "role": "螺栓/螺母/垫圈参数化候选", "modules": ["ScrewMaker.py", "FsData/", "FsFunctions/"], "license": "LGPL-2.1（LICENSE 现行）；README 末尾有 GPLv2 残留，需按固定提交/文件核验", "maintenance": {"checked_on": "2026-11-27", "pushed_at": "2026-11-26", "archived": false}, "dependencies": "FreeCAD（本库不引入运行时依赖）", "adaptation_cost": "仅索引/引用，不复制；改造成本待后续评估", "status": "candidate"},
+        {"repository": "gumyr/cq_warehouse", "url": "https://github.com/gumyr/cq_warehouse", "role": "紧固件参数化/表值参考", "modules": ["src/cq_warehouse/fastener.py"], "license": "Apache-2.0", "maintenance": {"checked_on": "2026-11-27", "pushed_at": "2026-10-16", "archived": false}, "dependencies": "CadQuery/OCP（此期不引入）", "adaptation_cost": "仅参考参数化与表值，不引入框架", "status": "reference"}
+      ],
+      "implementation": {
+        "helper": "scripts/fasteners.py 提供 hex_end/hex_head_side/thread_end 简化图元（粗/细圆内外相反、侧视与端视投影一致）；不含产品尺寸表。",
+        "helper_status": "available_simplified_only",
+        "data_status": "unverified",
+        "formal_available": false,
+        "formal_reason": "产品尺寸表未核验；DIN/ISO 参数不等于同号 GB 参数；不能按图片比例补造。"
+      }
+    },
+    {
+      "id": "nut",
+      "name_zh": "螺母",
+      "name_en": "nut",
+      "aliases": ["六角螺母", "1型六角螺母", "hex nut", "hexagon nut"],
+      "status": "candidate",
+      "parameters": {
+        "required": [
+          {"name": "type", "label_zh": "螺母类型（如 1型六角 GB/T 6170）", "note": "决定端视内螺纹画法", "positive": false},
+          {"name": "specification", "label_zh": "规格（公称直径，如 M12）", "note": "公称直径用于识别公称规格，不足以唯一确定全部外形（还取决于类型/标准、螺距等）；不默认 M 号", "positive": false}
+        ],
+        "conditional": [
+          {"name": "pitch", "label_zh": "螺距", "condition": "细牙或非默认螺距时", "trigger_key": "thread_form", "trigger_required": ["fine", "细牙"], "trigger_not_required": ["coarse", "粗牙"], "note": "普通粗牙省略；细牙不能丢项", "positive": true}
+        ],
+        "optional": [
+          {"name": "property_class", "label_zh": "性能等级", "note": "标注机械性能/标记时才需要", "positive": false},
+          {"name": "material", "label_zh": "材料", "note": "标注材料/热处理时才需要，不默认", "positive": false},
+          {"name": "surface", "label_zh": "镀层/表面处理", "note": "标注镀层要求时才需要", "positive": false}
+        ]
+      },
+      "drawing": {
+        "view_rules": [
+          "六角轴向端视：六角外轮廓；内螺纹小径为粗实线整圆，大径为细实线约3/4圆",
+          "与螺栓（外螺纹）端视的粗/细相反",
+          "侧视与端视六角朝向投影一致；详细倒角圆另按所选表达方式绘制"
+        ],
+        "section_rules": "沿轴线的装配剖切按不剖处理；不能扩大到所有剖切方向均不画剖面线。",
+        "representation_status": "partially_verified",
+        "basis": "GB/T 4459.1-1995（catalog_status）；scripts/fasteners.py 提供 thread_end 简化图元（非尺寸表）。part_templates.hex_nut 是旧比例示意，严禁用作标准螺母尺寸表。"
+      },
+      "standards": [
+        {"id": "GB/T 4459.1-1995", "kind": "drawing_representation", "title": "机械制图 螺纹及螺纹紧固件表示法", "status": "current", "verified": "catalog_status", "checked_on": "2026-11-27", "role": "螺纹及紧固件表示法", "url": "https://std.samr.gov.cn/gb/search/gbDetailed?id=wy%2FJ%2FNgC4LY%3D&mode=p"},
+        {"id": "GB/T 6170-2015", "kind": "product", "title": "1型六角螺母", "status": "current", "verified": "catalog_status_only_not_dimension_tables", "checked_on": "2026-11-27", "role": "产品尺寸标准（尺寸表未核验；修订计划 20253443-T-604 不能冒充已实施标准）", "url": "https://std.samr.gov.cn/gb/search/gbDetailed?id=71F772D80EC8D3A7E05397BE0A0AB82A"}
+      ],
+      "github": [
+        {"repository": "shaise/FreeCAD_FastenersWB", "url": "https://github.com/shaise/FreeCAD_FastenersWB", "role": "螺母参数化候选", "modules": ["ScrewMaker.py", "FsData/", "FsFunctions/"], "license": "LGPL-2.1（README 有 GPLv2 残留）", "maintenance": {"checked_on": "2026-11-27", "pushed_at": "2026-11-26", "archived": false}, "dependencies": "FreeCAD（本库不引入）", "adaptation_cost": "仅索引/引用，不复制", "status": "candidate"},
+        {"repository": "gumyr/cq_warehouse", "url": "https://github.com/gumyr/cq_warehouse", "role": "紧固件参数化/表值参考", "modules": ["src/cq_warehouse/fastener.py"], "license": "Apache-2.0", "maintenance": {"checked_on": "2026-11-27", "pushed_at": "2026-10-16", "archived": false}, "dependencies": "CadQuery/OCP（此期不引入）", "adaptation_cost": "仅参考，不引入框架", "status": "reference"}
+      ],
+      "implementation": {
+        "helper": "scripts/fasteners.py thread_end(internal=True) 提供内螺纹端视简化图元；无完整螺母生成器。",
+        "helper_status": "available_simplified_only",
+        "data_status": "unverified",
+        "formal_available": false,
+        "formal_reason": "产品尺寸表未核验；旧 hex_nut 比例模板不得作为标准尺寸来源。"
+      }
+    },
+    {
+      "id": "washer",
+      "name_zh": "垫圈",
+      "name_en": "washer",
+      "aliases": ["平垫圈", "A级平垫圈", "flat washer", "plain washer"],
+      "status": "candidate",
+      "parameters": {
+        "required": [
+          {"name": "type", "label_zh": "垫圈类型（如平垫圈 A级 GB/T 97.1）", "note": "决定画法与适用标准", "positive": false},
+          {"name": "nominal_diameter", "label_zh": "接口直径/公称规格（d，如 M12 或 数值）", "note": "对应螺栓/孔径；不默认规格", "positive": false}
+        ],
+        "conditional": [
+          {"name": "thickness", "label_zh": "厚度", "condition": "侧视/剖切视图表达厚度时", "trigger_key": "view_spec", "trigger_required": ["side", "section", "侧视", "剖视", "剖切"], "trigger_not_required": ["end", "端视"], "note": "端视同心圆不需要厚度；侧视/剖切需要", "positive": true},
+          {"name": "series", "label_zh": "产品等级与尺寸系列（等级与尺寸系列分别按选定标准核验）", "condition": "指定类型/标准未包含产品等级与尺寸系列时", "trigger_key": "grade_series_specified", "trigger_required": ["false", "未指定"], "trigger_not_required": ["true", "已指定"], "note": "产品等级与尺寸系列分别按选定标准核验；本轮只核实 GB/T 97.1-2002 A级的目录状态，未核验全部系列及尺寸表；不默认", "positive": false}
+        ],
+        "optional": [
+          {"name": "material", "label_zh": "材料", "note": "标注材料时才需要，不默认", "positive": false},
+          {"name": "surface", "label_zh": "镀层/表面处理", "note": "标注镀层要求时才需要", "positive": false}
+        ]
+      },
+      "drawing": {
+        "view_rules": [
+          "轴向端视：同心圆（外径圆 + 内孔圆）",
+          "侧视/剖切：矩形轮廓（需厚度）"
+        ],
+        "section_rules": "通用投影画法；本库证据内无垫圈专项表示法标准。",
+        "representation_status": "pending",
+        "basis": "通用投影画法；GB/T 97.1-2002 仅为产品标准（catalog_status_only_not_dimension_tables），未核验尺寸表。"
+      },
+      "standards": [
+        {"id": "GB/T 97.1-2002", "kind": "product", "title": "平垫圈 A级", "status": "current", "verified": "catalog_status_only_not_dimension_tables", "checked_on": "2026-11-27", "role": "产品尺寸标准（尺寸表未核验）", "url": "https://std.samr.gov.cn/gb/search/gbDetailed?id=71F772D79124D3A7E05397BE0A0AB82A"}
+      ],
+      "github": [
+        {"repository": "shaise/FreeCAD_FastenersWB", "url": "https://github.com/shaise/FreeCAD_FastenersWB", "role": "垫圈参数化候选", "modules": ["ScrewMaker.py", "FsData/"], "license": "LGPL-2.1（README 有 GPLv2 残留）", "maintenance": {"checked_on": "2026-11-27", "pushed_at": "2026-11-26", "archived": false}, "dependencies": "FreeCAD（本库不引入）", "adaptation_cost": "仅索引/引用，不复制", "status": "candidate"},
+        {"repository": "FreeCAD/FreeCAD-library", "url": "https://github.com/FreeCAD/FreeCAD-library", "role": "机械零件候选（垫圈等）", "modules": ["Mechanical Parts/"], "license": "资产 CC-BY-3.0（需署名）；代码 LGPL-2.1-or-later", "maintenance": {"checked_on": "2026-11-27", "pushed_at": "2026-11-21", "archived": false}, "dependencies": "库巨大（约 5GB），只按需取文件", "adaptation_cost": "仅按需取文件，禁止整体克隆", "status": "candidate"}
+      ],
+      "implementation": {
+        "helper": "无专用垫圈 helper；同心圆/剖切矩形需由通用图元实现。",
+        "helper_status": "pending",
+        "data_status": "unverified",
+        "formal_available": false,
+        "formal_reason": "产品尺寸表未核验；厚度等视图相关参数需用户给定。"
+      }
+    },
+    {
+      "id": "bearing",
+      "name_zh": "单列圆锥滚子轴承",
+      "name_en": "tapered roller bearing",
+      "aliases": ["圆锥滚子轴承", "tapered roller bearing", "滚子轴承", "bearing"],
+      "status": "candidate",
+      "parameters": {
+        "required": [
+          {"name": "designation", "label_zh": "轴承型号（如 30204）", "note": "用于从标准查表核对边界尺寸；型号未知时边界尺寸需用户给定", "positive": false},
+          {"name": "boundary_dimensions", "label_zh": "边界尺寸（内径 d、外径 D、总宽 T、内外圈宽 B/C）", "note": "现有工程图型号未知，不新增型号；完整精确结构不能从图估计", "positive": false}
+        ],
+        "conditional": [],
+        "optional": [
+          {"name": "contact_geometry", "label_zh": "详细结构尺寸/接触角", "note": "仅当需精确结构而非规定简化画法时", "positive": false}
+        ]
+      },
+      "drawing": {
+        "view_rules": [
+          "滚动轴承规定画法/简化画法",
+          "规定画法候选、具体条款/样例待核验；不谎称已有完全标准轴承生成器"
+        ],
+        "section_rules": "滚动轴承轴向剖视的表达按 GB/T 4459.7-2017 核对；待核验具体条款/样例。",
+        "representation_status": "catalog_status_only",
+        "basis": "GB/T 4459.7-2017 官方目录为现行；之前本地来源索引记录 Table A.1.5，但本轮未重读全文，故仅 catalog_status，不视为已核验具体条款。"
+      },
+      "standards": [
+        {"id": "GB/T 4459.7-2017", "kind": "drawing_representation", "title": "机械制图 滚动轴承表示法", "status": "current", "verified": "catalog_status", "checked_on": "2026-11-27", "role": "滚动轴承表示法（具体条款/样例待核验）", "url": "https://std.samr.gov.cn/gb/search/gbDetailedCNF?id=71F772D81B06D3A7E05397BE0A0AB82A"}
+      ],
+      "github": [
+        {"repository": "gumyr/cq_warehouse", "url": "https://github.com/gumyr/cq_warehouse", "role": "轴承参数化/表值参考", "modules": ["src/cq_warehouse/bearing.py"], "license": "Apache-2.0", "maintenance": {"checked_on": "2026-11-27", "pushed_at": "2026-10-16", "archived": false}, "dependencies": "CadQuery/OCP（此期不引入）", "adaptation_cost": "仅参考参数化，不引入框架", "status": "reference"},
+        {"repository": "FreeCAD/FreeCAD-library", "url": "https://github.com/FreeCAD/FreeCAD-library", "role": "机械零件候选（轴承等）", "modules": ["Mechanical Parts/"], "license": "资产 CC-BY-3.0（需署名）；代码 LGPL-2.1-or-later", "maintenance": {"checked_on": "2026-11-27", "pushed_at": "2026-11-21", "archived": false}, "dependencies": "库巨大，只按需取文件", "adaptation_cost": "仅按需取文件", "status": "candidate"}
+      ],
+      "implementation": {
+        "helper": "无轴承生成器；GB/T 4459.7 规定画法待核验后按简化/规定画法实现。",
+        "helper_status": "pending",
+        "data_status": "unverified",
+        "formal_available": false,
+        "formal_reason": "产品尺寸（型号/内外径/宽度）未知且不新增型号；表示法具体条款/样例待核验。"
+      }
+    },
+    {
+      "id": "key",
+      "name_zh": "平键",
+      "name_en": "flat key",
+      "aliases": ["普通平键", "普通型平键", "flat key", "parallel key", "键"],
+      "status": "candidate",
+      "parameters": {
+        "required": [
+          {"name": "type", "label_zh": "键类型（按已给键型核验端部形状，不从装配图局部露出轮廓直接判定型号）", "note": "必须区分类型，不把圆头形状套给所有情况", "positive": false},
+          {"name": "specification", "label_zh": "规格（b×h×L，从 GB/T 1096 选定或用户给定）", "note": "参数从所选规格或用户给定", "positive": false},
+          {"name": "shaft_keyway", "label_zh": "轴槽尺寸（槽宽 b、槽深 t1）", "note": "便于测量的 d−t1 形式需来自实际规格/标准，不按比例估计", "positive": false},
+          {"name": "hub_keyway", "label_zh": "毂槽尺寸（槽宽 b、槽深 t2）", "note": "轴槽/毂槽区分；不套用同一数值", "positive": false}
+        ],
+        "conditional": [
+          {"name": "keyway_tolerance", "label_zh": "键槽配合公差（如 N9/JS9）", "condition": "需要标注键槽配合公差时", "trigger_key": "keyway_tolerance_required", "trigger_required": ["true", "需要"], "trigger_not_required": ["false", "不需要"], "note": "不把 N9/JS9 套给所有情况", "positive": false}
+        ],
+        "optional": [
+          {"name": "material", "label_zh": "材料", "note": "标注材料时才需要，不默认", "positive": false},
+          {"name": "surface", "label_zh": "粗糙度/表面处理", "note": "标注要求时才需要，不默认", "positive": false}
+        ]
+      },
+      "drawing": {
+        "view_rules": [
+          "主视：矩形轮廓（长度 L × 高度 h）",
+          "键槽：轴槽/毂槽局部视图或移出断面，槽宽/槽深/长度分别核对"
+        ],
+        "section_rules": "键槽移出断面方向按任务条件；键槽中心线伸出两端。",
+        "representation_status": "pending",
+        "basis": "GB/T 1096-2003 仅为产品标准（catalog_status_only_not_dimension_tables）；表示法用通用投影画法，未核验专项条款。"
+      },
+      "standards": [
+        {"id": "GB/T 1096-2003", "kind": "product", "title": "普通型 平键", "status": "current", "verified": "catalog_status_only_not_dimension_tables", "checked_on": "2026-11-27", "role": "产品尺寸标准（尺寸表未核验）", "url": "https://std.samr.gov.cn/gb/search/gbDetailed?id=71F772D7F7FCD3A7E05397BE0A0AB82A"}
+      ],
+      "github": [
+        {"repository": "FreeCAD/FreeCAD-library", "url": "https://github.com/FreeCAD/FreeCAD-library", "role": "机械零件候选（键槽/键）", "modules": ["Mechanical Parts/"], "license": "资产 CC-BY-3.0（需署名）；代码 LGPL-2.1-or-later", "maintenance": {"checked_on": "2026-11-27", "pushed_at": "2026-11-21", "archived": false}, "dependencies": "库巨大，只按需取文件", "adaptation_cost": "证据内无已核实平键专用模块，标记 pending；仅按需取文件", "status": "pending"}
+      ],
+      "implementation": {
+        "helper": "无平键 helper；需区分类型/轴槽/毂槽后实现。",
+        "helper_status": "pending",
+        "data_status": "unverified",
+        "formal_available": false,
+        "formal_reason": "产品尺寸表未核验；类型/轴槽/毂槽参数需用户给定，不套 N9/JS9 或圆头形状。"
+      }
+    },
+    {
+      "id": "spacer",
+      "name_zh": "隔套",
+      "name_en": "spacer",
+      "aliases": ["隔套", "衬套", "垫圈隔套", "spacer", "spacer sleeve", "sleeve"],
+      "status": "candidate",
+      "parameters": {
+        "required": [
+          {"name": "inner_diameter", "label_zh": "内径", "note": "本任务未指定专用产品标准；尺寸来自设计/用户给定", "positive": true},
+          {"name": "outer_diameter", "label_zh": "外径", "note": "本任务未指定专用产品标准；尺寸来自设计/用户给定", "positive": true},
+          {"name": "length", "label_zh": "长度", "note": "本任务未指定专用产品标准；尺寸来自设计/用户给定", "positive": true},
+          {"name": "interface", "label_zh": "接触界面（两端配合的轴/孔或邻件界面）", "note": "唯一确定装配关系", "positive": false}
+        ],
+        "conditional": [
+          {"name": "chamfer", "label_zh": "倒角", "condition": "按任务条件需要倒角时", "trigger_key": "chamfer_required", "trigger_required": ["true", "需要"], "trigger_not_required": ["false", "不需要"], "note": "别自动添加倒角", "positive": false}
+        ],
+        "optional": [
+          {"name": "material", "label_zh": "材料", "note": "标注材料时才需要，不默认", "positive": false},
+          {"name": "surface", "label_zh": "粗糙度/表面处理", "note": "标注要求时才需要，不默认", "positive": false}
+        ]
+      },
+      "drawing": {
+        "view_rules": [
+          "主视：简单回转体（轴向剖视或外形，视表达需要）",
+          "端视：同心圆（外径圆 + 内孔圆）"
+        ],
+        "section_rules": "倒角等加工细节按任务条件，不自动添加。",
+        "representation_status": "pending",
+        "basis": "本任务未指定专用产品标准，按已确认结构与用户尺寸；通用回转体投影画法。"
+      },
+      "standards": [],
+      "github": [],
+      "implementation": {
+        "helper": "无专用隔套 helper；简单回转体可用通用图元实现。",
+        "helper_status": "pending",
+        "data_status": "no_designated_standard",
+        "formal_available": false,
+        "formal_reason": "本任务未指定专用产品标准；内外径/长度/接触界面需用户给定，倒角不自动添加。"
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "issues": [],
+  "limitations": [
+    "Synthetic annotation demo; not a fully toleranced manufacturing design",
+    "Visual review still required for contour/leader collisions"
+  ]
+}
