@@ -1,5 +1,11 @@
 # CAD-Coder · 机械零件工程图加强版
 
+本项目面向**机械专业本科生**，适合在机械制图、互换性与技术测量课程中练习零件图绘制和标注改错。可以从阶梯轴示例入手，对照教材检查配合尺寸、键槽和倒角，再用 CAD 编辑生成的 DXF。
+
+维护者建议在 Codex 中优先选用 **GPT-6 Astra** 或 **GPT-6.1 Sol**。选模型时可先看[同一道阶梯轴题的三份图纸](benchmarks/codex-A1/compare.pdf)，再对照[测试条件与用量](benchmarks/codex-A1/README.md)。交作业前请放大检查槽宽数字、中心线和引出线，即使箭头检查通过，文字仍可能压线。
+
+[查看维护者使用的全局 AGENTS.md](docs/author-rules/AGENTS.md)，了解参数来源、出图前澄清、发布前审图和错误复盘的约定。
+
 本仓库是 [alexzeng2014/cad-coder-skill](https://github.com/alexzeng2014/cad-coder-skill) 的二次开发版本，由 **kpdx-del** 维护，保留上游作者署名与 [MIT许可证](LICENSE) 来源（含历史 generator 快照中的 MIT `cad_support` 副本）。本项目不代表上游作者或相关论文作者的官方版本。本地工作副本当前**不含 `.git` 目录**，因此不声称已保存或打包完整本地 Git 提交历史。
 
 基于 Python + ezdxf，提供“读取条件 → 询问缺项 → 选择标注 → 生成可编辑DXF → 检查改错 → PNG/PDF验证”工作流。支持课程模式与指定标准版本的通用工程模式。数字默认采用直体工程字体 ISOCP，中文默认采用仿宋；个别示例（如紧固件画法对照）显式改用 Times，不附带字体文件。
