@@ -6,7 +6,7 @@ sys.path.insert(0,str(ROOT/'revision-05'))
 s=importlib.util.spec_from_file_location('revision05',ROOT/'revision-05/complete_assembly.py')
 prior=importlib.util.module_from_spec(s);s.loader.exec_module(prior)
 b=prior.b;p=prior.p;V=prior.V;meta=prior.meta;mark=prior.mark
-sys.path.insert(0,str(ROOT.parent/'cad-coder-skill/scripts'))
+sys.path.insert(0,str(ROOT.parent/'scripts'))
 from fasteners import hex_head_side
 
 
@@ -49,7 +49,7 @@ if __name__=='__main__':
     d=b.ezdxf.readfile(path);assert not d.audit().has_errors
     issues=b.old.audit_annotations(d.modelspace(),required_arrows={e.dxf.handle:(1,2) for e in d.modelspace().query('DIMENSION')})
     assert not issues,issues
-    spec=importlib.util.spec_from_file_location('batch_renderer',str(ROOT.parent/'cad-coder-skill/scripts/render_dxf.py'))
+    spec=importlib.util.spec_from_file_location('batch_renderer',str(ROOT.parent/'scripts/render_dxf.py'))
     renderer=importlib.util.module_from_spec(spec);spec.loader.exec_module(renderer)
     renderer.render_many(path,[path.with_suffix('.png'),path.with_suffix('.pdf')],paper='A3',scale=1,margin=5)
     (HERE/'检查.json').write_text(json.dumps({'status':'needs_visual_review','arrow_issues':issues,

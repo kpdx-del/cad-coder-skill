@@ -95,7 +95,7 @@ if __name__=='__main__':
     saved=b.ezdxf.readfile(path);assert not saved.audit().has_errors
     issues=b.old.audit_annotations(saved.modelspace(),required_arrows={e.dxf.handle:(1,2) for e in saved.modelspace().query('DIMENSION')})
     assert not issues,issues
-    renderer_spec=importlib.util.spec_from_file_location('batch_renderer',str(ROOT.parent/'cad-coder-skill/scripts/render_dxf.py'))
+    renderer_spec=importlib.util.spec_from_file_location('batch_renderer',str(ROOT.parent/'scripts/render_dxf.py'))
     renderer=importlib.util.module_from_spec(renderer_spec);renderer_spec.loader.exec_module(renderer)
     renderer.render_many(path,[path.with_suffix('.png'),path.with_suffix('.pdf')],paper='A3',scale=1,margin=5)
     (HERE/'检查.json').write_text(json.dumps({'arrows':issues,'status':'needs_visual_review',
