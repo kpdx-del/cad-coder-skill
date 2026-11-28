@@ -70,3 +70,10 @@ python scripts/render_dxf.py part.dxf part.pdf --paper A3 --scale 1
 尚未完成（如实保留，不自测代替用户认可）：六类候选索引的正式尺寸表未核验、不是六套自动生成器；不能杜绝任意漏箭头/图元重叠；FreeCAD二维Draft导入/保存重开已验证但 GUI 手工编辑及 SolidWorks 2023 原生草图/特征树未验证；工作副本未同步安装版、未发布。欢迎提供批评与可复现样例/数据集（含真实 DXF/位图与预期检查结果）。
 
 课程教材只用于本地核对，仓库不附教材/课件原件。教材例图中的参数不能套入其他零件，旧标准版式与现行标准的适用性须区分。项目默认画法不等于唯一合法画法。
+
+## 当前审阅入口
+
+- [三组 Codex 同题测试、用量与匿名 PDF](benchmarks/codex-A1/README.md)
+- [CASE-A1 标注避让修订示例](examples/CASE-A1-layout-fix/)
+- [完整减速箱修订 06](replicas/revision-06/)（使用仓库根目录的 replicas；docs/replicas 为历史上传副本）
+- [工程标注与紧固件示例](examples/review-20261127/)
